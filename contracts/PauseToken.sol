@@ -517,7 +517,7 @@ abstract contract ERC20 is Context, IERC20, IERC20Metadata, Ownable {
 contract ERC20Token00 is ERC20
 {
     mapping(address => bool) public isPauseExempt;
-    bool isPaused = false;
+    bool isPaused = true;
 
     constructor(
         string memory _name,

@@ -140,6 +140,85 @@ describe("Single Fee Token", function () {
     );
   });
 
+  it("Everyone can buy and sell if contract is not paused", async function () {
+    // The contract is paused by default, let's give user1 and user2 some tokens (they won't be able to swap anyways..)
+    await token.connect(deployer).transfer(user1.address, ethers.utils.parseEther("100"))
+    await token.connect(deployer).transfer(user2.address, ethers.utils.parseEther("100"))
+
+    // The owner is exempt by default, it can add liquidity, buy and sell
+    await token.connect(deployer).approve(router.address, ethers.utils.parseEther("1000"))
+    await router.connect(deployer).addLiquidityETH(
+      token.address,
+      ethers.utils.parseEther("1000"),
+      "0",
+      "0",
+      deployer.address,
+      deadline,
+      {value: ethers.utils.parseEther("1.0")}
+    )
+
+    await router.connect(deployer).swapExactETHForTokensSupportingFeeOnTransferTokens(
+      "0",
+      [await router.WETH(), token.address],
+      deployer.address,
+      deadline,
+      {value: ethers.utils.parseEther("0.05")}
+      )
+    
+    await token.connect(deployer).approve(router.address, ethers.utils.parseEther("10"))
+    await router.connect(deployer).swapExactTokensForETHSupportingFeeOnTransferTokens(
+      ethers.utils.parseEther("10"),
+      0,
+      [token.address, await router.WETH()],
+      deployer.address,
+      deadline
+    );
+
+    // User1 and user2 are not exempt, they cant buy and sell
+    await expect(
+      router.connect(user1).swapExactETHForTokensSupportingFeeOnTransferTokens(
+        "0",
+        [await router.WETH(), token.address],
+        user1.address,
+        deadline,
+        {value: ethers.utils.parseEther("0.05")}
+      )
+    ).to.be.revertedWith("UniswapV2: TRANSFER_FAILED");
+    
+    await token.connect(user1).approve(router.address, ethers.utils.parseEther("10"))
+    await expect (
+      router.connect(user1).swapExactTokensForETHSupportingFeeOnTransferTokens(
+        ethers.utils.parseEther("10"),
+        0,
+        [token.address, await router.WETH()],
+        user1.address,
+        deadline
+      )
+    ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
+
+    // And now for user2
+    await expect(
+      router.connect(user2).swapExactETHForTokensSupportingFeeOnTransferTokens(
+        "0",
+        [await router.WETH(), token.address],
+        user2.address,
+        deadline,
+        {value: ethers.utils.parseEther("0.05")}
+      )
+    ).to.be.revertedWith("UniswapV2: TRANSFER_FAILED");
+    
+    await token.connect(user2).approve(router.address, ethers.utils.parseEther("10"))
+    await expect(
+      router.connect(user2).swapExactTokensForETHSupportingFeeOnTransferTokens(
+        ethers.utils.parseEther("10"),
+        0,
+        [token.address, await router.WETH()],
+        user2.address,
+        deadline
+      )
+    ).to.be.revertedWith("TransferHelper: TRANSFER_FROM_FAILED");
+  });
+
   it("Constructor values are properly set", async function () {
     expect(await token.name()).to.equal("Test Name");
     expect(await token.symbol()).to.equal("Test Symbol");
